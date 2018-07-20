@@ -8,6 +8,7 @@ from astropy.io import fits
 from astropy.nddata import Cutout2D
 from astropy.table import Table
 from astropy.wcs import WCS
+from astropy.wcs.utils import skycoord_to_pixel, pixel_to_skycoord
 from matplotlib import patches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -82,6 +83,7 @@ class TargetPixelFile(object):
 
     @property
     def column(self):
+        """Column number of the corner pixel (lower left) in CCD coordinates."""
         try:
             out = self.hdu[1].header['1CRV5P']
         except KeyError:
@@ -90,6 +92,7 @@ class TargetPixelFile(object):
 
     @property
     def row(self):
+        """Row number of the corner pixel (lower left) in CCD coordinates."""
         try:
             out = self.hdu[1].header['2CRV5P']
         except KeyError:
@@ -97,14 +100,32 @@ class TargetPixelFile(object):
         return out
 
     @property
+    def _bad_pos_corr_mask(self):
+        """True if one of the POS_CORR* values is NaN or make no sense (>50px)"""
+        pc1 = self.hdu[1].data['POS_CORR1']
+        pc2 = self.hdu[1].data['POS_CORR2']
+        with warnings.catch_warnings():  # Comparing NaNs to numbers is OK here
+            warnings.simplefilter("ignore", RuntimeWarning)
+            return np.any([~np.isfinite(pc1),
+                           ~np.isfinite(pc2),
+                           np.abs(pc1 - np.nanmedian(pc1)) > 50,
+                           np.abs(pc2 - np.nanmedian(pc2)) > 50], axis=0)
+
+    @property
     def pos_corr1(self):
-        """Returns the column position correction."""
-        return self.hdu[1].data['POS_CORR1'][self.quality_mask]
+        """Returns the column correction of the astrometric solution."""
+        # We zero POS_CORR* when the values are NaN or make no sense (>50px);
+        pc1 = np.copy(self.hdu[1].data['POS_CORR1'])  # avoid changing self.hdu!
+        pc1[self._bad_pos_corr_mask] = 0
+        return pc1[self.quality_mask]
 
     @property
     def pos_corr2(self):
-        """Returns the row position correction."""
-        return self.hdu[1].data['POS_CORR2'][self.quality_mask]
+        """Returns the column correction of the astrometric solution."""
+        # We zero POS_CORR2 when the values are NaN or make no sense (>50px);
+        pc2 = np.copy(self.hdu[1].data['POS_CORR2'])  # avoid changing self.hdu!
+        pc2[self._bad_pos_corr_mask] = 0
+        return pc2[self.quality_mask]
 
     @property
     def pipeline_mask(self):
@@ -184,6 +205,59 @@ class TargetPixelFile(object):
         for oldkey, newkey in wcs_keywords.items():
             mywcs[newkey] = self.hdu[1].header[oldkey]
         return WCS(mywcs)
+
+    def skycoord_to_pixel(self, skycoord, frame='tpf'):
+        """Converts a set of sky coordinates into pixel coordinates.
+
+        The coordinates are relative to the lower left corner of the TPF.
+
+        Parameters
+        ----------
+        skycoord : `astropy.coordinates.SkyCoord`
+            The coordinates to convert.
+        frame : 'tpf' or 'ccd'
+            If 'tpf', the lower left corner of the TPF will have pixel
+            coordinates (0, 0).  If 'channel', the lower left corner of the
+            CCD channel will have pixel coordinates (0, 0).
+
+        Returns
+        -------
+        column, row : float
+            The pixel coordinates.
+        """
+        column, row = skycoord_to_pixel(skycoord, wcs=self.wcs, origin=0)
+        # Apply correction due to spacecraft motion:
+        column = np.atleast_1d(column) + self.pos_corr1
+        row = np.atleast_1d(row) + self.pos_corr2
+        if frame == 'ccd':  # Coordinates relative to TPF or CCD channel corner?
+            column += self.column
+            row += self.row
+        return column, row
+
+    def pixel_to_skycoord(self, column, row, frame='tpf'):
+        """Converts a set of pixel coordinates into celestial coordinates.
+
+        Parameters
+        ----------
+        column, row : float
+            The pixel coordinates to convert.
+        frame : 'tpf' or 'ccd'
+            If 'tpf', the lower left corner of the TPF will have pixel
+            coordinates (0, 0).  If 'channel', the lower left corner of the
+            CCD channel will have pixel coordinates (0, 0).
+
+        Returns
+        -------
+        skycoord : `astropy.coordinates.SkyCoord`
+            The celestial coordinates.
+        """
+        # The WCS is corrected for spacecraft motion:
+        column -= self.pos_corr1
+        row -= self.pos_corr2
+        if frame == 'ccd':
+            column -= self.column
+            row -= self.row
+        return pixel_to_skycoord(column, row, wcs=self.wcs, origin=0)
 
     @classmethod
     def from_fits(cls, path_or_url, **kwargs):
