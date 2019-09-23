@@ -664,10 +664,10 @@ class LightCurve(object):
         # Warn if the light curve is already in relative units.
         if isinstance(self._flux_unit, u.UnitBase) and \
             self._flux_unit.is_equivalent(u.dimensionless_unscaled):
-            warnings.warn("The light curve is already in relative units ({}); "
-                          "`normalize()` will convert the light curve into "
-                          "relative units for a second time, which is probably "
-                          "not what you want.".format(self._flux_unit),
+            warnings.warn("The light curve already appears to be in relative "
+                          "units; `normalize()` will convert the light curve "
+                          "into relative units for a second time, which is "
+                          "probably not what you want.".format(self._flux_unit),
                           LightkurveWarning)            
 
         # Create a new light curve instance and normalize its values
