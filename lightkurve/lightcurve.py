@@ -1634,9 +1634,9 @@ class LightCurve(TimeSeries):
             # Override the defaults where necessary
             from . import __version__
             default = {'ORIGIN': "Unofficial data product",
-                         'DATE': datetime.datetime.now().strftime("%Y-%m-%d"),
-                         'CREATOR': "lightkurve.LightCurve.to_fits()",
-                         'PROCVER': str(__version__)}
+                       'DATE': datetime.datetime.now().strftime("%Y-%m-%d"),
+                       'CREATOR': "lightkurve.LightCurve.to_fits()",
+                       'PROCVER': str(__version__)}
 
             for kw in default:
                 hdu.header['{}'.format(kw).upper()] = default[kw]
@@ -2035,7 +2035,7 @@ class KeplerLightCurve(LightCurve):
         return super().read(*args, **kwargs)
 
     def to_fits(self, path=None, overwrite=False, flux_column_name='FLUX',
-                aperture_mask=None,**extra_data):
+                aperture_mask=None, **extra_data):
         """Writes the KeplerLightCurve to a FITS file.
 
         Parameters
@@ -2115,7 +2115,7 @@ class TessLightCurve(LightCurve):
 
     def to_fits(self, path=None, overwrite=False, flux_column_name='FLUX',
                 aperture_mask=None, **extra_data):
-        """Writes the KeplerLightCurve to a FITS file.
+        """Writes the TessLightCurve to a FITS file.
 
         Parameters
         ----------
@@ -2143,6 +2143,7 @@ class TessLightCurve(LightCurve):
             Returns an astropy.io.fits object if path is None
         """
         tess_specific_data = {
+            'TELESCOP': "TESS",
             'OBJECT': '{}'.format(self.targetid),
             'MISSION': self.meta.get('mission'),
             'RA_OBJ': self.meta.get('ra'),
