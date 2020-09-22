@@ -15,17 +15,6 @@ from ..periodogram import SNRPeriodogram
 from ..utils import LightkurveWarning, validate_method
 from .utils import  SeismologyQuantity
 
-# Import the optional Bokeh dependency required by ``interact_echelle```,
-# or print a friendly error otherwise.
-try:
-    import bokeh  # Import bokeh first so we get an ImportError we can catch
-    from bokeh.io import show, output_notebook
-    from bokeh.plotting import figure
-    from bokeh.models import LogColorMapper, Slider, RangeSlider, Button
-    from bokeh.layouts import layout, Spacer
-except:
-    # Nice error will be raised when ``interact_echelle``` is called.
-    pass
 
 log = logging.getLogger(__name__)
 
@@ -433,10 +422,15 @@ class Seismology(object):
             properly. If no protocol is supplied in the URL, e.g. if it is
             of the form "localhost:8888", then "http" will be used.
         """
+        # Import the optional Bokeh dependency or print a friendly error.
+        # Importing Bokeh is a bit slow, so we do these imports inside this
+        # method to speed up importing the rest of the seismology package.
         try:
-            import bokeh
-            if bokeh.__version__[0] == '0':
-                warnings.warn("interact() requires Bokeh version 1.0 or later", LightkurveWarning)
+            import bokeh  # Import bokeh first so we get an ImportError we can catch
+            from bokeh.io import show, output_notebook
+            from bokeh.plotting import figure
+            from bokeh.models import LogColorMapper, Slider, RangeSlider, Button
+            from bokeh.layouts import layout, Spacer
         except ImportError:
             log.error("The interact() tool requires the `bokeh` Python package; "
                       "you can install bokeh using e.g. `conda install bokeh`.")

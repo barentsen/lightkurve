@@ -7,13 +7,12 @@ import warnings
 import collections
 
 import numpy as np
-from scipy import signal
+from scipy.signal import savgol_filter
 from scipy.interpolate import interp1d
 import matplotlib
 from matplotlib import pyplot as plt
 from copy import deepcopy
 
-from astropy.stats import sigma_clip
 from astropy.table import Table
 from astropy.io import fits
 from astropy.time import Time, TimeDelta
@@ -568,10 +567,10 @@ class LightCurve(TimeSeries):
                     # Scipy outputs a warning here that is not useful, will be fixed in version 1.2
                     with warnings.catch_warnings():
                         warnings.simplefilter('ignore', FutureWarning)
-                        trsig = signal.savgol_filter(x=self.flux.value[mask][l:h],
-                                                                 window_length=window_length,
-                                                                 polyorder=polyorder,
-                                                                 **kwargs)
+                        trsig = savgol_filter(x=self.flux.value[mask][l:h],
+                                              window_length=window_length,
+                                              polyorder=polyorder,
+                                              **kwargs)
                         trend_signal[l:h] = Quantity(trsig, trend_signal.unit)
             # Ignore outliers; note we add `1e-14` below to avoid detecting
             # outliers which are merely caused by numerical noise.
@@ -976,6 +975,10 @@ class LightCurve(TimeSeries):
             >>> mask
             array([False,  True, False,  True, False])
         """
+        # The import time for `sigma_clip` is somehow very slow, so we use
+        # a local import here.
+        from astropy.stats.sigma_clipping import sigma_clip
+
         # First, we create the outlier mask using AstroPy's sigma_clip function
         with warnings.catch_warnings():  # Ignore warnings due to NaNs or Infs
             warnings.simplefilter("ignore")
