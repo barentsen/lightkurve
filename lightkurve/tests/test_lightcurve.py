@@ -1368,3 +1368,10 @@ def test_search_neighbors():
     assert len(search) == 1
     assert search.distance.value < 300
     assert search.target_name[0] == '388852407'
+
+
+def test_issue_927():
+    """Regression test for #927."""
+    lc = LightCurve(time=np.arange(10), flux=np.ones(10))
+    lc_binned = lc.fold(1).bin(3)
+    assert len(lc_binned) == 1
